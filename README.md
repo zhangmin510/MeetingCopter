@@ -2,6 +2,10 @@
 
 A small macOS menu bar app that watches your calendar and flies a red helicopter across the center of the screen with a banner reminder before meetings.
 
+## Demo
+
+![MeetingCopter menu and helicopter reminder](demo/demo.png)
+
 ## Features
 
 - Menu bar status item for calendar access and upcoming meetings
