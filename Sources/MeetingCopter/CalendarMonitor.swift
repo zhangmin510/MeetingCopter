@@ -11,21 +11,42 @@ final class CalendarMonitor: ObservableObject {
 
     var onReminderTriggered: ((EKEvent) -> Void)?
 
+    private var hasReadAccess: Bool {
+        switch authorizationStatus {
+        case .authorized, .fullAccess: return true
+        default: return false
+        }
+    }
+
     // MARK: - Permission
 
     func requestAccess() {
         authorizationStatus = EKEventStore.authorizationStatus(for: .event)
-        if authorizationStatus == .notDetermined {
-            eventStore.requestAccess(to: .event) { [weak self] granted, _ in
+        if hasReadAccess {
+            startPolling()
+            return
+        }
+        guard authorizationStatus == .notDetermined else { return }
+
+        // Re-read status from the system in the callback (don't hard-code
+        // .authorized) so the stored value matches what the OS actually
+        // granted — .fullAccess on macOS 14+, .authorized on older. A
+        // hard-coded .authorized fails the hasReadAccess check on the
+        // next launch when the system returns .fullAccess.
+        if #available(macOS 14.0, *) {
+            eventStore.requestFullAccessToEvents { [weak self] granted, _ in
                 DispatchQueue.main.async {
-                    self?.authorizationStatus = granted ? .authorized : .denied
-                    if granted {
-                        self?.startPolling()
-                    }
+                    self?.authorizationStatus = EKEventStore.authorizationStatus(for: .event)
+                    if granted { self?.startPolling() }
                 }
             }
-        } else if authorizationStatus == .authorized {
-            startPolling()
+        } else {
+            eventStore.requestAccess(to: .event) { [weak self] granted, _ in
+                DispatchQueue.main.async {
+                    self?.authorizationStatus = EKEventStore.authorizationStatus(for: .event)
+                    if granted { self?.startPolling() }
+                }
+            }
         }
     }
 
@@ -44,7 +65,7 @@ final class CalendarMonitor: ObservableObject {
     }
 
     private func checkUpcomingEvents() {
-        guard authorizationStatus == .authorized else { return }
+        guard hasReadAccess else { return }
 
         let calendars = eventStore.calendars(for: .event)
         let now = Date()
