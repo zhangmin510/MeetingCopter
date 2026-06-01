@@ -21,10 +21,13 @@ enum HelicopterOverlay {
         let physicsEngine = PhysicsEngine()
         physicsEngine.createFlightShape()
 
-        // Flight path: left-to-right, slowly across the center of the screen.
-        let startX = screenFrame.minX - 280
-        let endX = screenFrame.maxX + 360
-        let baseY = screenFrame.midY
+        // Flight path is in VIEW-LOCAL coords (origin at the contentView's
+        // bottom-left, regardless of where the window sits on the global
+        // desktop). Using screen-space minX/midY/maxX here would only render
+        // correctly on a screen whose origin is (0, 0).
+        let startX: CGFloat = -280
+        let endX = screenFrame.width + 360
+        let baseY = screenFrame.height / 2
 
         physicsEngine.flightPath = { t in
             let x = startX + (endX - startX) * t
